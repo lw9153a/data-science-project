@@ -1,0 +1,168 @@
+---
+title: "Regression Models"
+author: "Favian Liu"
+date: "12/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(ggplot2)
+library(shinythemes)
+library(tidyverse)
+library(broom)
+library(arm)
+library(leaps)
+library(lmtest)
+library(car)
+library(sandwich)
+water <- read_csv("../output/tidy_water.csv")
+```
+
+## Tidying the data further for analysis
+```{r}
+glimpse(water)
+typeof(water)
+water %>%
+  mutate(region = as.factor(region)) %>%
+         filter(source == "Ground water" | source == "Surface water") %>%
+  mutate(source = as.factor(source)) %>%
+  dplyr::select(region, primary_agency, population, num_facilities, num_violations, num_site_visits, source) -> water
+
+summary(water)
+```
+
+
+## Running a Poisson Analysis
+```{r}
+glm.water <- glm(num_violations ~ population + num_facilities + num_site_visits + source + region, data = water, family = poisson(link = "log"))
+
+glm.water %>%
+  augment() -> water.resid
+
+water.resid %>%
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point()
+
+summary(glm.water)
+
+cov.water <- vcovHC(glm.water, type="HC0")
+std.err <- sqrt(diag(cov.water))
+r.est <- cbind(Estimate= coef(glm.water), "Robust SE" = std.err,
+               "Pr(>|z|)" = 2 * pnorm(abs(coef(glm.water)/std.err), lower.tail=FALSE),
+               LL = coef(glm.water) - 1.96 * std.err,
+               UL = coef(glm.water) + 1.96 * std.err)
+
+r.est
+
+```
+
+The poisson model shows the estimate for the variables are all significant. However, based on the residual plot of the poisson analysis, this model is a bad fit. A quasipoisson model might be better.
+
+## Running a Quasipoisson Analysis
+
+```{r}
+quasi.water <- glm(num_violations ~ population + num_facilities + num_site_visits + source + region, data = water, family = quasipoisson(link = "log"))
+
+quasi.water %>%
+  augment() -> quasi.resid
+  
+summary(quasi.water)
+```
+A quasipoisson model shows us the estimates of the same variables are no longer significant.
+
+# Exploring the best model to use
+
+
+## Running a stepwise by calculating "quasi-AIC"
+Since R does not give the AIC value of quasipoisson models, I used this website https://cran.r-project.org/web/packages/bbmle/vignettes/quasi.pdf to try to determine the AIC values. But I was having trouble with the function.
+
+```{r}
+glmFVSR.water <- update(glm.water, . ~ . - population)
+glmFVR.water <- update(glmFVSR.water, . ~ . - source)
+glmFSR.water <- update(glmFVSR.water, . ~ . - num_site_visits)
+glmVSR.water <- update(glmFVSR.water, . ~ . - num_facilities)
+glmFVS.water <- update(glmFVSR.water, . ~ . - region)
+glmFR.water <- update(glmFVR.water, . ~ . -num_site_visits)
+glmVR.water <- update(glmVSR.water, . ~ . - source)
+glmFV.water <- update(glmFVS.water, . ~ . - source)
+glmRS.water <- update(glmFSR.water, . ~ . - num_facilities)
+glmFS.water <- update(glmFVS.water, . ~ . - num_site_visits)
+glmVS.water <- update(glmFVS.water, . ~ . - num_facilities)
+glmR.water <- update(glmFR.water, . ~ . - num_facilities)
+glmF.water <- update(glmFV.water, . ~ . - num_site_visits)
+glmV.water <- update(glmFV.water, . ~ . - num_facilities)
+glmS.water <- update(glmVS.water, . ~ . - num_site_visits)
+glmFVSR.water <- update(glmFVSR.water, family=quasipoisson)
+glmFVR.water <- update(glmFVR.water, family=quasipoisson)
+glmFSR.water <- update(glmFSR.water, family=quasipoisson)
+glmVSR.water <- update(glmVSR.water, family=quasipoisson)
+glmFVS.water <- update(glmFVS.water, family=quasipoisson)
+glmFR.water <- update(glmFR.water, family=quasipoisson)
+glmVR.water <- update(glmVR.water, family=quasipoisson)
+glmFV.water <- update(glmFV.water, family=quasipoisson)
+glmRS.water <- update(glmRS.water, family=quasipoisson)
+glmFS.water <- update(glmFS.water, family=quasipoisson)
+glmVS.water <- update(glmVS.water, family=quasipoisson)
+glmR.water <- update(glmR.water, family=quasipoisson)
+glmF.water <- update(glmF.water, family=quasipoisson)
+glmV.water <- update(glmV.water, family=quasipoisson)
+glmS.water <- update(glmS.water, family=quasipoisson)
+
+summary(glmFVSR.water)
+summary(glmFVR.water)
+summary(glmFSR.water)
+summary(glmVSR.water)
+summary(glmFVS.water)
+summary(glmFR.water)
+summary(glmVR.water)
+summary(glmFV.water)
+summary(glmRS.water)
+summary(glmFS.water)
+summary(glmVS.water)
+summary(glmR.water)
+summary(glmF.water)
+summary(glmV.water)
+summary(glmS.water)
+
+quasi.water2$terms
+
+
+summary(step(glm.water))
+```
+*This method is of comparing AIC values is too long and not worth it.*
+
+
+## Using Anova function instead of comparing AICvalues
+Since the above function did not work, and I needed to decide a model now, I tried comparing models that I thought would perform better by running the anova function while comparing their Mallow's Cp value.
+```{r}
+quasi.water2 <- glm(num_violations ~ num_facilities + num_site_visits + source + region, data = water, family = quasipoisson(link = "log"))
+
+quasi.water2 %>%
+  augment() -> quasi.resid
+  
+summary(quasi.water2)
+
+quasi.water3 <- glm(num_violations ~ num_facilities + num_site_visits + source, data = water, family = quasipoisson(link = "log"))
+
+summary(quasi.water3)
+anova(quasi.water2, quasi.water3)
+
+quasi.water4 <- glm(num_violations ~ num_facilities + source + region, data = water, family = quasipoisson(link = "log"))
+
+summary(quasi.water4)
+
+quasi.water5 <- glm(num_violations ~ num_facilities + num_site_visits +  region, data = water, family = quasipoisson(link = "log"))
+
+quasi.null <- glm(num_violations ~ 1, data = water, family = quasipoisson(link = "log"))
+
+anova(quasi.water, quasi.water2, test = "Cp")
+
+anova(quasi.water, quasi.water2, test = "LRT")
+```
+
+After dropping the population parameter, a comparison of the Mallow's Cp and a Likelihood Ratio Test(LRT) ws done between the full and reduce model. Both show that the reduced model is better since the reduced model has a lower Mallow's Cp value and the p-value of the LRT test is 0.9185. This means we fail to reject the null hypothesis and we are able to say that population can be dropped.

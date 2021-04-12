@@ -1,0 +1,39 @@
+---
+title: "Map Cleaning Data"
+author: "London Wagner"
+date: "12/3/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Abstract
+The purpose of this file is to organize the water data in a way so it is easy to plot on a map by state.
+
+```{r}
+water <- read_csv("./tidy_water.csv")
+usa <- map_data("state")
+water%>%
+  filter(str_to_lower(primary_agency) %in% unique(usa$region))%>%
+  group_by(primary_agency)%>%
+  summarize(median_violations = median(num_violations), median_population = median(population), median_facilities = median(num_facilities), median_visits = median(num_site_visits), epa_region = mean(region), violations_per_facilities = median_violations/median_facilities, violations_per_person = median_violations/median_population)%>%
+  arrange(epa_region)-> water2
+
+usa$region <- str_to_title(usa$region)
+map_water <- inner_join(usa, water2, by = c("region" = "primary_agency"))
+map_water%>%
+  arrange(epa_region) -> map_water
+head(map_water)
+```
+
+## Saving the map data to a new csv file
+```{r}
+write_csv(x = map_water, path = "C:/Users/18325/Documents/STAT413/final-project-psyduck/output/map_water.csv")
+write_csv(x = map_water, path = "C:/Users/18325/Documents/STAT413/final-project-psyduck/app/data/map_water.csv")
+```
+
+
+

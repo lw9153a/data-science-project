@@ -1,0 +1,157 @@
+---
+title: "London Analysis 1"
+author: "London Wagner"
+date: "11/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+
+## Abstract
+The goal of this exploratory analysis is to examine the "water" data set and 
+determine whether the EPA region a site is located in (region) will have an
+effect on the number of violations a site will have (num_violations).
+
+## Analysis
+There are 14 variables in this dataset, but for this analysis, we will be
+focusing on the following ones:
+
+- `region`: a factor that represents which EPA region the site is in (the
+region determines which office is responsible for the execution of the EPA's
+programs)
+- `population`: a double that represents the population a site caters to
+- `num_facilities`: a double that represents the number of facilities at a site
+- `num_violations`: a double that represents the number of violations at a site
+- `num_site_visits`: a double that represents how many times the site has been
+visited
+
+```{r}
+water <- read.csv("../data/Tidy_Data/tidy_water.csv")
+head(water)
+```
+
+# Converting Region into a factor and checking it
+```{r}
+water$region <- as.factor(water$region)
+levels(water$region)
+```
+
+# Univariate Analysis
+First, we'll create a bar chart for the number of facilities in each region
+```{r}
+water%>%
+  ggplot(aes(x = region, fill = region))+
+  geom_bar()+
+  theme_bw()+
+  ggtitle("Count per EPA Region")+
+  theme(legend.position = "none")
+```
+There appear to be the greatest number of sites in region 5 at around 42,000.
+The number of sites in region 7 and 8 are the lowest, at around 7,000. 
+
+Next, we'll create a histogram for the distribution of the number of violations
+
+```{r}
+water%>%
+  ggplot(aes(x = num_violations))+
+  geom_histogram(bins = 30, fill = "light blue")+
+  theme_bw()+
+  ggtitle("Number of Violations")
+```
+The data is heavily skewed, so we will transform it with a log transformation.
+We will also have to add 1, since there are 0 values.
+
+```{r}
+water%>%
+  ggplot(aes(x = log(num_violations + 1)))+
+  geom_histogram(bins = 30, fill = "light blue")+
+  theme_bw()+
+  ggtitle("Number of Violations")
+```
+Even though the distribution is still not normal, it is much closer to normal
+than it was before. Additionally, because our sample size is so large, it's
+safe to assume that normality will not be an issue for this data set. However,
+because there are a large proportion of 0's in this data set, there could be
+problems in statistical analysis.
+
+# Computing summary statistics by group
+```{r}
+water%>%
+  group_by(region)%>%
+  summarise(
+    count = n(),
+    mean = mean(num_violations),
+    sd = mean(num_violations)
+  )
+```
+
+# Bivariate Analysis
+```{r}
+water%>%
+  ggplot(aes(x = region, y = log(num_violations+1), fill = region))+
+  geom_boxplot()+
+  theme_bw()+
+  theme(legend.position = "none")+
+  ggtitle("Region vs. Number of Violations(log)")
+```
+There definitely appears to be variation in the number of violations depending
+on the region the site is located in. We will need to examine this further. We
+also need to take into account the number of facilities at each site. More
+violations could occur in each region due to the fact that there tend to be
+more facilities per site. For now, let's just examine the difference in
+violations across regions with an ANOVA table. Not all the assumptions will 
+be 100% valid for the ANOVA table, but we will use it for inital explorations.
+
+```{r}
+anova(lm(num_violations~region, data = water))
+```
+Because our p-value is less than any significant alpha, we can conclude that 
+there is a difference in the mean number of violations per region.
+
+I'm going to create a variable that determines the number of violations based
+on the number of facilities at each site. To do this, I will be dividing the
+number of violations by the number of facilities, therefore getting the number
+of violations per facilities. 
+```{r}
+water%>%
+  filter(num_facilities > 0)%>%
+  mutate(violations_per_fac = num_violations/num_facilities)-> water
+```
+
+There appear to be 22 sites with no facilities. At this point, I'm not quite
+sure why that is, but because these points make up such a small percentage of
+the data set, we are going to assume these data points will not change our
+analysis and leave them out.
+
+```{r}
+water%>%
+  ggplot(aes(x = region, y = log(violations_per_fac+1), fill = region))+
+  geom_boxplot()+
+  theme_bw()+
+  theme(legend.position = "none")+
+  ggtitle("Region vs. Number of Violations(log)")
+```
+
+```{r}
+anova(lm(violations_per_fac~region, data = water))
+```
+
+Because our p-value is less than any significant alpha, we can conclude that 
+there is a difference in the mean number of violations per region, even when 
+factoring in the number of facilities.
+
+## Conclusion
+
+There appears to be a difference in the mean number of violations based
+on region, even when factoring in the number of facilities. However, we 
+do not know if there are other variables within the data set that also 
+contribute to the number of violations. This will need to be examined in
+further analysis when we try to create a model for the data. 
+

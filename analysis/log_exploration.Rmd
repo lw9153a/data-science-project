@@ -1,0 +1,196 @@
+---
+title: "Favian Data Exploration"
+author: "Favian Liu"
+date: "11/2/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Abstract
+For this exploration, I wanted to check the normality assumptions for the quantitative data. Also, I wanted to look at the relationships between the explanatory variables (Number of site visits, population served, number of facilities) and the response variable (Number of Violations). Generally, all the quantitative variables need to be transformed, and the best transformation was a log transformation. However, there were some observations with a value of 0, so I thought that a good idea was to add 1 before doing a log transformation.
+
+# Loading in data
+```{r}
+library(tidyverse)
+library(data.table)
+library(broom)
+
+water <- fread("../data/Favian_Data/water_system_summary (All states).csv")
+
+glimpse(water)
+# looking at the data, I need to parse_number the pop served count, there are commas in the raw data. 
+water[, "Population Served Count" := .(parse_number(`Population Served Count`))]
+
+# Adding logtransformations to quantitative vairables
+water[, c("logsite", "logfacil", "logviolation", "logpop") := .(log10(`# of Site Visits` + 1), log10(`# of Facilities` + 1), log10(`# of Violations` + 1), log10(`Population Served Count` + 1))]
+
+
+# write_csv(water, path = "../data/Favian_Data/water_system_summary_v01.csv")
+
+```
+
+# Univariant models
+
+```{r}
+## Exploring the plots of certain variables
+qplot(water$`Population Served Count`)
+qplot(water$`# of Violations`)
+qplot(water$`# of Facilities`)
+qplot(water$`# of Site Visits`)
+qplot(water$`Primary Source`)
+
+
+## The distribution seemed very skewed, so going to log10 most of the plots
+
+water %>% 
+  ggplot(aes(y = logsite)) +
+  geom_boxplot()
+
+water %>%
+  ggplot(aes(y = logfacil)) +
+  geom_boxplot()
+
+
+```
+
+
+```{r}
+## There are "0" values, a sqrt transformatiom could be used
+water %>%
+  filter(`# of Violations` == 0)
+
+## Still quite a few outliers, right tail too large
+water %>% 
+  ggplot(aes(y = `# of Violations`)) +
+  geom_boxplot() +
+  scale_y_sqrt()
+
+## After adding 1 then log10, data much more evenly distributed
+water %>% 
+  ggplot(aes(y = logviolation)) +
+  geom_boxplot()
+```
+
+```{r}
+## There are also "0" values, a sqrt transformatiom could be used
+water %>%
+  filter(`Population Served Count` == 0)
+
+## Still quite a few outliers, right tail too large
+water %>% 
+  ggplot(aes(y = `Population Served Count`)) +
+  geom_boxplot() +
+  scale_y_sqrt()
+
+## After adding 1 then log10, data much more evenly distributed
+water %>% 
+  ggplot(aes(y = logpop)) +
+  geom_boxplot()
+
+```
+
+# Multivariant models
+## Relationship between 2 numerical variables
+
+### Violations vs facilities
+```{r}
+## Untransformed data
+water %>%
+  ggplot(aes(y = `# of Violations`, x = `# of Facilities`)) +
+  geom_point()
+
+## log10 both data
+water %>%
+  ggplot(aes(y = logviolation, x = logfacil)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+
+lm.facil <- lm(logviolation ~ logfacil, data = water)
+summary(lm.facil)
+```
+
+### Violations vs site visits
+```{r}
+## sqrt both variables
+water %>% 
+  ggplot(aes(y = `# of Violations`, x = `# of Site Visits`)) +
+  geom_point() +
+  scale_x_sqrt() +
+  scale_y_sqrt()
+
+## Added 1 to violations to remove 0 values and log both varibles
+water %>% 
+  ggplot(aes(y = logviolation, x = logsite)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F)
+
+site.lm <- lm(logviolation ~ logsite, data = water)
+summary(site.lm)
+
+```
+
+
+### Violations vs population
+```{r}
+# It seems that adding 1 and doing a log10 transformation might be best.
+
+## sqrt transformations
+water %>%
+  ggplot(aes(y = `# of Violations`, x = `Population Served Count`)) +
+  geom_point() +
+  scale_x_sqrt() +
+  scale_y_sqrt()
+
+## added 1 then log10 transformed the data
+water %>%
+  ggplot(aes(y = logviolation, x = logpop)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F)
+
+pop.lm <- lm(logviolation ~ logpop, data = water)
+summary(pop.lm)
+```
+
+All the explanatory vairables seem to be significantly related to the number of violations, all the p-value for the slopes are <0.05. However, they also have a very small $R^2$ value, Indicating a very large variance of the data. We could find ways to fix this if possible to make the model better.
+## Multiple regression
+```{r}
+water.reg <- lm(logviolation ~ logfacil + logsite + logpop, data = water)
+summary(water.reg)
+```
+
+
+## Relationship between 1 numerical and 1 qualitative
+```{r}
+water %>%
+  ggplot(aes(y = logviolation, x = `Primary Source`)) +
+  geom_boxplot()
+
+water %>%
+  ggplot(aes(y = logfacil, x = `Primary Source`)) +
+  geom_boxplot()
+
+water %>%
+  ggplot(aes(y = logsite, x = `Primary Source`)) +
+  geom_boxplot()
+
+water %>%
+  ggplot(aes(y = logpop, x = `Primary Source`)) +
+  geom_boxplot()
+```
+
+
+# Conclusion
+
+I think that with how large the dataset it, the ouliers observed after the log transformations are not going ot significantly affect the analysis of the data, and we are able to run a regression model on this. I think it would be interesting to see if certain variables are more significant than others. If so, are we able to add or drop other variables to make the model better.
+
+```{r}
+water
+
+glm.water <- glm(`# of Violations` ~ `Population Served Count`, family = "poisson", data = water)
+
+summary(glm.water)
+```
+

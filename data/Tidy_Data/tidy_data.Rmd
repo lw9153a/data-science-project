@@ -1,0 +1,57 @@
+---
+title: 'Water: Data Cleaning'
+author: "London Wagner"
+date: "11/9/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Abstract
+This file will be used to clean the data so that it is easier to work with. We will start off with Favian's data set that includes information from all 50 states.
+
+## Loading in Packages
+
+```{r}
+library(tidyverse)
+```
+
+
+## Cleaning
+
+```{r}
+water <- read_csv("C:/Users/18325/Documents/STAT413/final-project-psyduck/data/Raw_Data/water_system_summary (All states).csv")
+head(water)
+```
+
+# Renaming Columns/Variables
+First, I will change the names of the variables so that they are easier to work with, but it is still clear what each of the variables is
+
+```{r}
+colnames(water) <- c("ID", "name", "region", "primary_agency", "type", "population", "cities_served", "counties_served", "num_facilities", "num_violations", "num_site_visits", "zip", "city_name", "source")
+head(water)
+```
+# Transforming Data
+I will also transform the region variable so that it is a character.
+
+```{r}
+water%>%
+  dplyr::select(region, primary_agency, population, num_facilities, num_violations, num_site_visits, source)%>%
+  filter(source == "Ground water" | source == "Surface water")%>%
+  mutate(region = parse_number(region))%>%
+  arrange(region)%>%
+  mutate(region = as.factor(region))->
+  water
+head(water)
+```
+## Saving the tidy data to a new csv file
+
+```{r}
+write_csv(x = water, path = "C:/Users/18325/Documents/STAT413/final-project-psyduck/data/Tidy_Data/tidy_water.csv")
+write_csv(x = water, path = "C:/Users/18325/Documents/STAT413/final-project-psyduck/output/tidy_water.csv")
+write_csv(x = water, path = "C:/Users/18325/Documents/STAT413/final-project-psyduck/app/data/tidy_water.csv")
+```
+
+

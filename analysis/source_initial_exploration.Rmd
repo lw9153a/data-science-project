@@ -1,0 +1,146 @@
+---
+title: "Source - Initial Exploration (1)"
+author: "Katherine Lee"
+date: "11/10/2020"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(data.table)
+library(broom)
+```
+
+
+
+```{r}
+
+water <- read_csv("../data/London_Data/tidy_water.csv")
+
+```
+
+
+# Abstract 
+
+I explored the water source (`source`) variable, which I filtered down to `Ground water` and `Surface water`; it is a binary, qualitative variable. 
+
+
+```{r}
+
+water %>%
+  filter(source == "Ground water" | source == "Surface water") ->
+  water
+
+```
+
+# Analysis
+
+## Ground Water vs. Surface Water (Source)
+
+I counted and plotted the number of values for each type to see if they varied. This revealed that the count for ground water is much higher in our data set than the count for surface water. 
+
+```{r}
+  
+water %>%
+  group_by(source) %>%
+  summarize(n())
+
+
+qplot(water$source)
+
+
+```
+
+
+## Source vs. Number or Violations 
+
+Next, I created a boxplot, plotting the water source against the number of violations. 
+ 
+```{r}
+
+water %>%
+  mutate(num_violations = num_violations + 1) %>%
+  ggplot(aes(y = num_violations, x = source)) +
+  geom_boxplot() +
+  scale_y_log10()
+
+```
+I also found the mean for the number of violations for both ground water and surface water. 
+
+```{r}
+
+
+water %>%
+  group_by(source) %>%
+  summarize(n = n(), mean_v = mean(num_violations))
+
+
+```
+It appears that the log of surface water tends to have more violations than the the log of ground water. It may be possible that this has something to do with ground water being used more often - we will want to look in to the association between the source and the number of violations further. 
+
+
+## Source vs. Number of Site Visits 
+
+Next, I used a boxplot to plot the water source against the number of site visits. 
+
+```{r}
+
+
+  ggplot(water, aes(y = num_site_visits, x = source)) +
+  geom_boxplot() +
+  scale_y_log10()
+
+
+```
+
+I also found the mean for the number of site visits for both ground water and surface water. 
+
+```{r}
+
+water %>%
+  group_by(source) %>%
+  summarize(n = n(), meansite = mean(num_site_visits))
+
+```
+
+It looks like there may be a relationship between the number of site visits and the number of violations, as surface water has more of both compared to ground water. We plan on looking further into this association. 
+
+
+## Source vs. Population 
+
+
+Finally, I plotted water source against the population 
+
+```{r}
+
+water %>%
+  mutate(population = population + 1) %>%
+  ggplot(aes(y = population, x = source)) +
+  geom_boxplot() +
+  scale_y_log10()
+
+```
+
+
+
+
+I also found the mean of the population for both ground water and surface water. 
+
+```{r}
+
+
+water %>%
+  group_by(source) %>%
+  summarize(n = n(), meanpop = mean(population))
+
+```
+This tells us that larger populations tend to be serviced more so with surface water than with ground water. This may also be related to the number of site visits and violations, and therefore we will examine these associations more closely. 
+
+
+# Conclusion 
+
+
+From this initial exploration, we found that there are far more values of Ground Water than Surfac Water. And even so, Surface Water has many more violations and site visits than Ground Water, and also appears to service higher populations than Ground Water. However, further analysis is required to determine the nature of the relationship between these variables. 
+

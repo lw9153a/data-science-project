@@ -1,0 +1,309 @@
+---
+title: "Final Report"
+author: "Katherine Lee"
+date: "11/22/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(data.table)
+library(broom)
+```
+
+
+# I. Introduction 
+
+While reviewing the Annual Drinking Water Quality data provided by the U.S. Environmental Protection Agency, I noticed that the two types of water that publicly service the majority of the United States are Ground Water, which is extracted from under the ground, and Surface Water, which comes from bodies of water and waterways such as rivers, lakes, and streams. I then wanted to know: Which water source is more likely to have more violations? I believe this question is interesting because not many people are aware of their water source, and knowing if one water source is more prone to receiving violations could be useful information, particularly in regard to consumer health. 
+
+
+### Explanation of Terms in the Data Set
+
+- Ground Water: water that is extracted from under the ground 
+- Surface Water: water that is extracted from bodies of water and waterways such as rivers, lakes, and streams. 
+- Violation: Shows if a contaminant that is present in the drinking water is above the level allowed by EPA.
+
+
+
+# II. Exploratory Data Analysis 
+
+
+First, I explored the water source (`source`) variable, which is qualitative. I filtered down to `Ground water` and `Surface water`, creating a binary variable that is clearer to analyze. I then counted the number of group elements. The plot below shows that there are 125,778 values for Ground Water and 4,987 values from Surface water. I also generated and overview of the summary statistics for the data set, for reference. 
+
+```{r}
+
+water <- fread("../output/tidy_water.csv")
+
+water %>%
+  filter(source == "Ground water" | source == "Surface water") ->
+  water
+
+```
+
+```{r}
+
+
+water %>%
+  group_by(source) %>%
+  summarize(n())
+
+water[, .(.N), .(source)]
+
+```
+
+
+```{r}
+
+qplot(water$source)
+
+```
+
+
+```{r}
+
+summary(water)
+
+
+```
+
+
+Next, I decided to take a brief look at the relationship between the water source (`source`) and the number of violations (`num_violations`). I started by producing a boxplot, which contained a number of outliers and appeared that it may be skewed. I therefore decided to log the number of violations and repositioned the scale for the `num_violations` variable. I also add +1 to the number of violations, as some values are equal to 0, and they would have been excluded otherwise. This produced a second plot that is much more easy to analyze and contains far less outliers. This plot reveals that the mean of the number of violations for Surface Water is higher than the mean of the number of violations for Ground Water. 
+
+
+
+```{r}
+
+water %>%
+  ggplot(aes(y = num_violations, x = source)) +
+  geom_boxplot() +
+  xlab("Water Source") +
+  ylab("Number of Violations") +
+  theme_bw() 
+
+```
+
+
+```{r}
+
+
+water %>%
+  mutate(lognum_v = log(num_violations + 1)) %>%
+  ggplot(aes(y = lognum_v, x = source)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  xlab("Water Source") +
+  ylab("Number of Violations") +
+  theme_bw() 
+
+
+```
+
+
+Next, I briefly explored the relationship between the water source and the number of site visits (`num_site_visits`). I produced a boxplot which contained a number of outliers and appeared to be skewed (similar to the number of violations above). I therefore decided to log the number of site visits, and 1, and reposition the scale for the `num_site_visits` variable. This produced a second plot that displayed the difference in the two types much more clearly and contained far less outliers. This plot reveals that the mean of the number of site visits for Surface Water is higher than the mean of the number of site visits for Ground Water. 
+
+
+```{r}
+
+water %>%
+  ggplot(aes(y = num_site_visits, x = source)) +
+  geom_boxplot() +
+  xlab("Water Source") +
+  ylab("Number of Site Visits") +
+  theme_bw() 
+
+```
+
+```{r}
+
+water %>%
+  mutate(lognum_site = log(num_site_visits + 1)) %>%
+  ggplot(aes(y = lognum_site, x = source)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  xlab("Water Source") +
+  ylab("Number of Site Visits") +
+  theme_bw() 
+
+
+```
+
+Finally, I took a brief look at the relationship between the water source and the population. Similar to the `num_violations` and `num_site_visits` variables, the `population` variable also needed to be logged in order to analyze. This boxplot shows that the mean of the populations that is serviced by Surface Water is higher than the mean of the populations serviced by Ground Water. 
+
+
+
+```{r}
+
+water %>%
+  ggplot(aes(y = population, x = source)) +
+  geom_boxplot() +
+  xlab("Water Source") +
+  ylab("Population") +
+  theme_bw() 
+
+
+
+```
+
+
+```{r}
+
+water %>%
+  mutate(log_pop = log(population + 1)) %>%
+  ggplot(aes(y = log_pop, x = source)) +
+  geom_boxplot() +
+  xlab("Water Source") +
+  ylab("Population") +
+  theme_bw() 
+
+
+
+```
+
+
+
+My scientific question of interest: (Which water source is more likely to have more violations?), was able to be informally answered by the above exploratory data analysis: Surface Water is more likely to have more violations than Ground Water. This preliminary exploration also showed that Surface Water also tends to service larger populations than Ground Water and that Surface Water facilities also receive more site visits than Ground water facilities. 
+
+
+# III. Hypothesis 
+
+Given the above exploration, I chose to create the following hypothesis: Surface Water is more likely to receive more violations than Ground Water. The null hypothesis is therefore the following: Surface Water and Ground Water are equally as likely to receive violations. 
+
+
+# IV. Implementation 
+
+## t-test 
+
+To begin the implementation of my statistical analysis, I ran a t.test on the the number of violations, a quantitative variable, and the water source, a binary variable. With a produced p-value of 1.545889e-98 (p < 0.001), I have strong evidence that Surface Water is more likely to receive violations than Ground Water. I can also estimate that mean difference in the number of violations between the two sources is -44.31, with 95% confidence, between -48.35 and -40.28. 
+
+
+```{r echo = FALSE}
+
+water %>%
+  mutate(source = as.factor(source)) ->
+  water
+
+
+t.test(num_violations ~ source, data = water) %>%
+  tidy() ->
+  tdf 
+
+
+tdf$p.value
+tdf$estimate
+c(tdf$conf.low, tdf$conf.high)
+
+
+
+
+```
+
+Note: In this analysis, Ground Water is the first sample mean (M1) and Surface Water is the second sample mean (M2). Because Surface Water has a higher sample mean, and is the second sample mean, the t-value produced is negative. 
+
+```{r}
+
+levels(water$source)
+
+```
+
+
+
+
+## Models
+
+Next, I created a model where Source is the predictor variable for the Number of Violations. The p-value here is also very small (p-vale < 2e-16). The estimate of Surface Water produced is the same as in the t-test above (44.31). It is also worth noting that the range of residuals varies by a large amount. 
+
+```{r}
+
+lm_v <- lm(num_violations ~ source , data = water)
+summary(lm_v)
+
+```
+
+
+I also created a model where Source is the predictor variable for the Number of Site Visits. The p-value here is once again very small (p-vale < 2e-16). The estimate of Surface Water produced is 18.43. It is also worth noting that the range of residuals also varies by quite a bit, but not as much as the residuals for Number of Violations. 
+
+
+
+```{r}
+
+lm_s <- lm(num_site_visits ~ source , data = water)
+summary(lm_s)
+
+```
+
+
+## Normality - Number of Violations 
+
+Next, I used QQ plots to look at the distribution of the residuals for the Number of Violations and the Number of Site Visits, with Source once again as the predictor variable. The plots show that the residuals for both are not normally distributed. 
+
+
+
+```{r}
+
+model_v <- aov(num_violations~ source, data = water)
+
+qqnorm(model_v$residuals)
+qqline(model_v$residuals)
+
+```
+
+
+
+```{r}
+
+model_s <- aov(num_site_visits ~ source, data = water)
+
+qqnorm(model_s$residuals)
+qqline(model_s$residuals)
+
+```
+
+## Equal Variance 
+
+Finally, I did a brief check of equal variance. For both the Number of Violations and the Number of Site Visits (with Source as the predictor variable), the p-values are quite small, indicating that this assumption is not violated. 
+
+
+```{r}
+
+bartlett.test(num_violations~ source, data = water)
+
+```
+
+```{r}
+
+bartlett.test(num_site_visits ~ source, data = water)
+
+```
+
+
+
+## Closer Look at the Quantitative Variables 
+
+
+I also wanted to look further into the relationship between the Number of Violations and the Number of Site visits, to see if this relationship may be influencing the relationship between the Source and hte Number of Violations. The scatter plot below shows that there is a positive relationship between the Number of Violations and the Number of Site Visits. 
+
+
+```{r}
+
+water %>%
+  ggplot(aes(x = num_site_visits, y = num_violations)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) + 
+  theme_bw() +
+  xlab("Number of Site Visits") +
+  ylab("Number of Violations")
+
+
+```
+
+
+
+
+
+
+# V. Conclusion 
+
+To conclude, my analysis shows that Surface Water is more likely to receive violations (and site visits) than Ground Water. Unfortunately, it is impossible to determine with this data set whether the number of violations increases because due to the number of site visits, if the number of site visits increases due to the number of violations, or if higher populations cause either and increase in the number of violations or require more site visits. 
+
+

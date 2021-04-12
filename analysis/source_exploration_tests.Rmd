@@ -1,0 +1,95 @@
+---
+title: "Source Exploration (2) - Tests"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(data.table)
+library(broom)
+```
+
+
+
+# Abstract 
+
+After exploring the water source (`source`) variable, I conducted t-tests to further analyze its relationship with other variables.
+
+
+# Analysis 
+
+```{r}
+
+water <- read_csv("../data/London_Data/tidy_water.csv")
+
+```
+
+```{r}
+
+water %>%
+  filter(source == "Ground water" | source == "Surface water") ->
+  water
+
+```
+
+
+## Source vs. Number of Violations
+
+After running a quick t-test, there is strong evidence that the type of water source influences the number of violations. We can also estimate that mean difference in the number of violations between the two sources is -44.31, and with 95% confidence, between -48.35 and -40.28. However, it is possible that another variable is influencing the number of violations.
+
+[Note: We plan to check for collinearity.]
+
+```{r}
+
+t.test(num_violations ~ source, data = water) %>%
+  tidy() ->
+  tdf
+
+tdf$p.value
+tdf$estimate
+c(tdf$conf.low, tdf$conf.high)
+
+```
+
+
+## Source vs. Number of Site Visits 
+
+
+From this t-test, we have strong evidence that the type of water source influences the number of site vitis. We can also estimate that mean difference in the number of violations between the two sources is -18.43, and with 95% confidence, between -19.65 and -17.22. However, it is possible that another variable is influencing the number of site visits. 
+
+[Note: We plan to check for collinearity.]
+
+```{r}
+
+t.test(num_site_visits ~ source, data = water) %>%
+  tidy() ->
+  tdf
+tdf$p.value
+tdf$estimate
+c(tdf$conf.low, tdf$conf.high)
+
+```
+
+
+## Source vs. Population 
+
+
+This t-test shows that we have strong evidence that the type of water source influences population, but that does not make much sense. We plan to look into the relationship between the populaiton and the source and check other variables for collinearity. 
+
+```{r}
+
+t.test(population ~ source, data = water) %>%
+  tidy() ->
+  tdf
+tdf$p.value
+
+```
+
+
+# Conclusion 
+
+
+From this initial exploration, we found that there are strong associations between the water source (`source`) and the following variables: number of violations (`num_violations`), number of site visits (`num_site_visits`), and the population (`population`). Violations, site visits, and population are have higher values for surface water when compared with ground water, but further analysis is required to determine the nature of the relationship between these variables. 
+
+

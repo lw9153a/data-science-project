@@ -1,0 +1,105 @@
+---
+title: "London Analysis 1"
+author: "London Wagner"
+date: "11/8/2020"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+
+## Abstract
+The goal of this exploratory analysis is to examine the correlation
+between the quantitative variables in the "water" data set. At this 
+point, we have decided that we are going to be using the number of
+violations as the response variable in our model, so I plan on checking 
+the relationship between the quantitative predictors. 
+
+## Analysis
+There are 14 variables in this dataset, but for this analysis, we will be
+focusing on the following ones:
+
+- `population`: a double that represents the population a site caters to
+- `num_facilities`: a double that represents the number of facilities at a site
+- `num_site_visits`: a double that represents how many times the site has been
+visited
+
+```{r}
+water <- read.csv("../data/Tidy_Data/tidy_water.csv")
+water$region <- as.factor(water$region)
+head(water)
+```
+
+# Number of Facilities and Number of Site Visits
+```{r}
+ggplot(data = water)+
+  geom_point(mapping = aes(x = num_facilities, y = num_site_visits))
+```
+Based on the initial scatterplot, it is difficult to tell if there is 
+any sort of correlation. The majority of the observations appear to have
+be centered around a relatively low number of site visits and low number
+of facilities. There are observations with a low number of site visits
+and a high number of facilities, but there are only around 6 of these 
+out of the 100,000+ observations. There are also some points with a low
+number of facilities and a high number of site visits. Overall, there 
+is no clear pattern shown. 
+
+```{r}
+ggplot(data = water)+
+  geom_point(mapping = aes(x = log(num_facilities + 1), y = log(num_site_visits + 1)))
+```
+After transforming the data, there is once again no clear pattern between the
+two variables.
+
+# Number of Facilities and Population
+```{r}
+ggplot(data = water)+
+  geom_point(mapping = aes(x = num_facilities, y = population))
+```
+The initial scatterplot shows that there might be a slight positive 
+correlation between population and number of facilities, but at
+this point I am not sure. I'm going to transform the data to hopefully 
+provide more insight.
+
+```{r}
+ggplot(data = water)+
+  geom_point(mapping = aes(x = log(num_facilities + 1), y = log(population +1)))
+```
+After transforming the data, a positive correlation becomes more clear. As
+the number of facilities increases, it appears that the population increases
+as well. We saw earlier that the number of site visits did not have much of
+an impact on the number of facilities, but we do not know if it has an impact
+on population.
+
+# Population and Number of Site Visits
+
+```{r}
+ggplot(data = water)+
+  geom_point(mapping = aes(x = population, y = num_site_visits))
+```
+Once again, it is difficult to tell if there is any correlation between the 
+two variables, so I will transform them in the same way I have previously to
+get a better understanding of whether or not there is a potential relationship 
+between the two.
+
+```{r}
+ggplot(data = water)+
+  geom_point(mapping = aes(x = log(population + 1), y = log(num_site_visits+1)))
+```
+There is a slight positive association between the two transformed 
+variables. As population increases, the general trend is that the
+number of site visits increases. 
+
+## Conclusion
+The variable population appears to be at least slightly associated with
+the number of site visits and the number of facilities. However, the 
+number of site visits and the number of facilities to not appear to have
+an association. If there is an association between population and our 
+response, the number of violations, this could be coming from its 
+correlation with the other two quantitative predictors.
+
